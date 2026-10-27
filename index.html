@@ -89,13 +89,14 @@ textarea:focus{border-color:var(--gold);outline:none}
 .item:hover{border-color:var(--gold)}
 .item b{display:block}
 .item small{color:var(--dim)}
-.item.won-item{flex-direction:column;justify-content:center;text-align:center;gap:10px;padding:34px 14px 16px;
-  background:radial-gradient(ellipse at 50% 35%,rgba(255,207,74,.22),transparent 65%),linear-gradient(135deg,rgba(255,79,139,.14),rgba(63,208,255,.14)),var(--night);border:1px solid var(--gold);box-shadow:0 0 22px rgba(255,207,74,.18)}
-.won-item .avs{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
-.won-item .champ-av{width:112px;height:112px}
-.won-item .who{font-family:var(--f-display);font-size:30px;line-height:1.1;color:var(--gold);text-shadow:0 2px 12px rgba(255,207,74,.45)}
-.won-item .lbl2{font-family:var(--f-latin);font-size:11px;letter-spacing:.3em;color:var(--gold)}
-.won-item small{display:block}
+.item.won-item{padding:16px 16px;gap:14px;justify-content:flex-start;border-color:var(--gold);
+  background:linear-gradient(90deg,rgba(255,207,74,.16),rgba(255,79,139,.06) 60%,transparent),var(--night)}
+.won-item .champ-av{width:64px;height:64px;border-radius:12px;margin-top:10px}
+.won-item .champ-av .crown-ic{top:-40%;width:66%}
+.won-item .txt{flex:1;min-width:0;display:grid;gap:2px}
+.won-item .txt b{font-size:16px}
+.won-item .who{font-family:var(--f-display);font-size:22px;line-height:1.15;color:var(--gold)}
+.won-item .who em{font-style:normal;font-family:var(--f-body);font-size:12px;font-weight:800;letter-spacing:.1em;margin-right:6px;color:var(--dim)}
 .pwrow{display:flex;gap:6px;align-items:center}
 .pwrow input{width:130px;background:var(--night);border:1px solid var(--lose);border-radius:10px;padding:8px 10px}
 .pill{flex:none;font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;border:1px solid currentColor}
@@ -359,7 +360,7 @@ function render(){
       ${!db?`<p class="notice">기록 서버에 연결하는 중이에요. 계속 안 되면 새로고침해 주세요.</p>`:""}
     </section>
     <section class="panel" aria-labelledby="ls">
-      <h2 id="ls">진행 중인 내전</h2>
+      <h2 id="ls">내전 목록</h2>
       <div class="list">${list.length?list.map(t=>t.champ&&t.champ.length?champItem(t):`<button class="item" data-open="${esc(t.id)}"><span><b>${esc(t.name)}</b><small>${t.players.length}명 · ${new Date(t.createdAt).toLocaleDateString("ko-KR",{month:"long",day:"numeric"})} 생성</small></span><span class="pill ${t.mode==="ko"?"ko":"lg"}">${modeName(t.mode)}</span></button>`).join(""):`<div class="empty">아직 만든 내전이 없어요.<br>왼쪽에서 참가자를 적고 <b>듀얼 개시!</b>를 누르면 여기에 생겨요.</div>`}</div>
     </section>
   </div>`;
@@ -401,7 +402,7 @@ function renderT(v){
   const pct=c.total?Math.round(c.done/c.total*100):0;
   const champ=t.mode==="ko"?c.view.champ:(c.done===c.total&&c.total?c.ranks.filter(r=>r.rank===1).map(r=>r.i):null);
   // 모든 경기가 끝나면 우승자에게 왕관
-  champSet=new Set(c.total&&c.done===c.total&&champ!=null?(Array.isArray(champ)?champ:[champ]):[]);
+  champSet=new Set(champsOf(t));
   syncChamp(t,[...champSet]);
   let body="";
   if(tab==="games") body=t.mode==="ko"?gamesKo(c,P):gamesLeague(c,P);
@@ -462,9 +463,15 @@ function cs(i,t){const img=avatars(t)[i];return`--c:${COLORS[i%16]}`+(img?`;--im
 let champSet=new Set();
 function champItem(t){
   const ids=t.champ.filter(i=>i>=0&&i<t.players.length);
-  return`<button class="item won-item" data-open="${esc(t.id)}"><div class="avs">${ids.map(i=>`<div class="champ-av" style="${cs(i,t)}">${CROWN}</div>`).join("")}</div>
-  <span class="lbl2">CHAMPION</span><span class="who">${ids.map(i=>esc(t.players[i])).join(" · ")}</span>
-  <small>${esc(t.name)} · ${t.players.length}명 · ${modeName(t.mode)}</small></button>`;
+  return`<button class="item won-item" data-open="${esc(t.id)}">${ids.slice(0,3).map(i=>`<div class="champ-av" style="${cs(i,t)}">${CROWN}</div>`).join("")}
+  <span class="txt"><b>${esc(t.name)}</b><span class="who"><em>우승</em>${ids.map(i=>esc(t.players[i])).join(" · ")}</span>
+  <small>${t.players.length}명 · ${new Date(t.createdAt).toLocaleDateString("ko-KR",{month:"long",day:"numeric"})} · ${modeName(t.mode)}</small></span>
+  <span class="pill done">종료</span></button>`;
+}
+function champsOf(t){
+  const c=compute(t);if(!c.total||c.done!==c.total)return[];
+  if(t.mode==="ko")return c.view.champ!=null?[c.view.champ]:[];
+  return c.ranks.filter(r=>r.rank===1).map(r=>r.i);
 }
 /* 우승자가 정해지면 목록(idx)에도 기록해서 첫 화면에 보여줌 */
 function syncChamp(t,arr){
@@ -473,6 +480,7 @@ function syncChamp(t,arr){
   if(JSON.stringify(m.champ||null)===JSON.stringify(want))return;
   const{id,...nm}=m;if(want)nm.champ=want;else delete nm.champ;
   store.metas[t.id]={id:t.id,...nm};store.pub("idx/"+t.id,nm).catch(()=>{});
+  list=Object.values(store.metas).sort((a,b)=>b.createdAt-a.createdAt).slice(0,30);if(!curId)schedule();
 }
 const CROWN=`<svg class="crown-ic" viewBox="0 0 64 46" aria-hidden="true"><path d="M5 41 9 13l13 14L32 5l10 22 13-14 4 28Z" fill="#ffcf4a" stroke="#6b3f00" stroke-width="3" stroke-linejoin="round"/><rect x="5" y="37" width="54" height="7" rx="2" fill="#f0a91a" stroke="#6b3f00" stroke-width="3"/><circle cx="32" cy="5" r="4" fill="#ff4f8b" stroke="#6b3f00" stroke-width="2"/><circle cx="9" cy="13" r="3.5" fill="#3fd0ff" stroke="#6b3f00" stroke-width="2"/><circle cx="55" cy="13" r="3.5" fill="#3fd0ff" stroke="#6b3f00" stroke-width="2"/><circle cx="32" cy="29" r="4" fill="#ff4f8b"/></svg>`;
 function pbtn(i,P,g){
@@ -579,10 +587,10 @@ function watchDoc(){
 /* ---------- 실시간 저장소: 공개 MQTT 브로커의 보관(retained) 메시지 ---------- */
 const BASE="arcv-duel-6f2q9x/v1/";
 const store={
-  c:null,metas:{},cache:{},watchers:{},
+  c:null,metas:{},cache:{},watchers:{},scanned:{},ct:{},
   connect(){
     const c=this.c=mqtt.connect("wss://broker.emqx.io:8084/mqtt",{clientId:"arcv_"+Math.random().toString(36).slice(2,10),reconnectPeriod:2000,connectTimeout:8000,clean:true});
-    c.on("connect",()=>{db=store;dbReady=true;c.subscribe(BASE+"idx/+",{qos:1});Object.keys(this.watchers).forEach(id=>c.subscribe(BASE+"t/"+id+"/#",{qos:1}));render()});
+    c.on("connect",()=>{db=store;dbReady=true;this.scanned={};c.subscribe(BASE+"idx/+",{qos:1});Object.keys(this.watchers).forEach(id=>c.subscribe(BASE+"t/"+id+"/#",{qos:1}));render()});
     c.on("close",()=>{if(db){db=null;render()}});
     c.on("message",(topic,buf)=>this.onMsg(topic.slice(BASE.length),buf.toString()));
   },
@@ -590,12 +598,16 @@ const store={
     const p=path.split("/");let v=null;
     if(s){try{v=JSON.parse(s)}catch(e){return}}
     if(p[0]==="idx"){if(v&&v.name)this.metas[p[1]]={id:p[1],...v};else delete this.metas[p[1]];
-      list=Object.values(this.metas).sort((a,b)=>b.createdAt-a.createdAt).slice(0,30);if(!curId)schedule();return}
+      list=Object.values(this.metas).sort((a,b)=>b.createdAt-a.createdAt).slice(0,30);if(!curId)schedule();
+      if(v&&v.name&&!this.scanned[p[1]]&&this.c){this.scanned[p[1]]=1;this.c.subscribe(BASE+"t/"+p[1]+"/#",{qos:1})}
+      return}
     if(p[0]!=="t")return;
     const id=p[1],e=this.entry(id);
     if(p[2]==="meta"){if(v&&v.name){e.meta=v;e.seen=true}else{e.meta=null;e.gone=true}}
     else if(p[2]==="r"){if(v==null)delete e.results[p[3]];else e.results[p[3]]=v}
     this.emit(id);
+    // 목록용: 결과가 다 모이면 우승자 계산해서 목록에 반영
+    clearTimeout(this.ct[id]);this.ct[id]=setTimeout(()=>{if(e.meta)syncChamp({id,...e.meta,results:e.results},champsOf({id,...e.meta,results:e.results}))},700);
   },
   entry(id){return this.cache[id]||(this.cache[id]={meta:null,results:{}})},
   emit(id){
@@ -615,7 +627,7 @@ const store={
     if(this.c&&this.c.connected)this.c.subscribe(BASE+"t/"+id+"/#",{qos:1});
     // 서버에 기록이 사라졌으면 내 사본으로 복구
     const heal=setTimeout(()=>{if(this.watchers[id]&&this.c&&this.c.connected&&!e.seen&&!e.gone&&e.local){this.create(id,e.meta);Object.entries(e.results).forEach(([k,v])=>this.setResult(id,k,v))}},6000);
-    return()=>{clearTimeout(heal);delete this.watchers[id];if(this.c)this.c.unsubscribe(BASE+"t/"+id+"/#")};
+    return()=>{clearTimeout(heal);delete this.watchers[id];if(this.c&&!this.scanned[id])this.c.unsubscribe(BASE+"t/"+id+"/#")};
   },
   pub(path,val){return new Promise((ok,no)=>{if(!this.c||!this.c.connected)return no(new Error("offline"));this.c.publish(BASE+path,val==null?"":JSON.stringify(val),{qos:1,retain:true},err=>err?no(err):ok())})},
   async create(id,meta){
