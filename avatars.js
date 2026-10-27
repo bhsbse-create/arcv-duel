@@ -12,4 +12,5 @@ window.AVATARS = [
   { name: "현서", img: "img/hyunseo.jpg" },
   { name: "규현", img: "img/gyuhyun.jpg" },
   { name: "인우", img: "img/inwoo.jpg" },
+  { name: "석진", img: "img/seokjin.jpg" },
 ];
