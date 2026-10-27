@@ -6,6 +6,5 @@
   - 사진 파일은 img 폴더에 넣어요. 정사각형에 가까울수록 예뻐요.
 */
 window.AVATARS = [
-  // { name: "현서", img: "img/hyunseo.jpg" },
-  { img: "img/mascot.jpg" },
+  { name: "영진", img: "img/yeongjin.jpg" },
 ];
