@@ -7,4 +7,5 @@
 */
 window.AVATARS = [
   { name: "영진", img: "img/yeongjin.jpg" },
+  { name: "성훈", img: "img/seonghun.jpg" },
 ];
