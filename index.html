@@ -89,6 +89,15 @@ textarea:focus{border-color:var(--gold);outline:none}
 .item:hover{border-color:var(--gold)}
 .item b{display:block}
 .item small{color:var(--dim)}
+.item.won-item{flex-direction:column;justify-content:center;text-align:center;gap:10px;padding:34px 14px 16px;
+  background:radial-gradient(ellipse at 50% 35%,rgba(255,207,74,.22),transparent 65%),linear-gradient(135deg,rgba(255,79,139,.14),rgba(63,208,255,.14)),var(--night);border:1px solid var(--gold);box-shadow:0 0 22px rgba(255,207,74,.18)}
+.won-item .avs{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}
+.won-item .champ-av{width:112px;height:112px}
+.won-item .who{font-family:var(--f-display);font-size:30px;line-height:1.1;color:var(--gold);text-shadow:0 2px 12px rgba(255,207,74,.45)}
+.won-item .lbl2{font-family:var(--f-latin);font-size:11px;letter-spacing:.3em;color:var(--gold)}
+.won-item small{display:block}
+.pwrow{display:flex;gap:6px;align-items:center}
+.pwrow input{width:130px;background:var(--night);border:1px solid var(--lose);border-radius:10px;padding:8px 10px}
 .pill{flex:none;font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;border:1px solid currentColor}
 .pill.lg{color:var(--pend-b)} .pill.ko{color:var(--pend-r)} .pill.done{color:var(--gold)}
 .empty{color:var(--dim);font-size:14px;padding:18px;border:1px dashed var(--line);border-radius:12px;text-align:center}
@@ -351,7 +360,7 @@ function render(){
     </section>
     <section class="panel" aria-labelledby="ls">
       <h2 id="ls">진행 중인 내전</h2>
-      <div class="list">${list.length?list.map(t=>`<button class="item" data-open="${esc(t.id)}"><span><b>${esc(t.name)}</b><small>${t.players.length}명 · ${new Date(t.createdAt).toLocaleDateString("ko-KR",{month:"long",day:"numeric"})} 생성</small></span><span class="pill ${t.mode==="ko"?"ko":"lg"}">${modeName(t.mode)}</span></button>`).join(""):`<div class="empty">아직 만든 내전이 없어요.<br>왼쪽에서 참가자를 적고 <b>듀얼 개시!</b>를 누르면 여기에 생겨요.</div>`}</div>
+      <div class="list">${list.length?list.map(t=>t.champ&&t.champ.length?champItem(t):`<button class="item" data-open="${esc(t.id)}"><span><b>${esc(t.name)}</b><small>${t.players.length}명 · ${new Date(t.createdAt).toLocaleDateString("ko-KR",{month:"long",day:"numeric"})} 생성</small></span><span class="pill ${t.mode==="ko"?"ko":"lg"}">${modeName(t.mode)}</span></button>`).join(""):`<div class="empty">아직 만든 내전이 없어요.<br>왼쪽에서 참가자를 적고 <b>듀얼 개시!</b>를 누르면 여기에 생겨요.</div>`}</div>
     </section>
   </div>`;
   $("#tname").oninput=e=>form.name=e.target.value;
@@ -393,6 +402,7 @@ function renderT(v){
   const champ=t.mode==="ko"?c.view.champ:(c.done===c.total&&c.total?c.ranks.filter(r=>r.rank===1).map(r=>r.i):null);
   // 모든 경기가 끝나면 우승자에게 왕관
   champSet=new Set(c.total&&c.done===c.total&&champ!=null?(Array.isArray(champ)?champ:[champ]):[]);
+  syncChamp(t,[...champSet]);
   let body="";
   if(tab==="games") body=t.mode==="ko"?gamesKo(c,P):gamesLeague(c,P);
   else if(tab==="rank") body=rankTable(t,c,P);
@@ -402,7 +412,7 @@ function renderT(v){
     <button class="ghost" id="home" aria-label="처음 화면으로">←</button>
     <div class="mini"><img src="img/mascot.jpg" alt=""></div>
     <div class="tt"><small>${t.mode==="league"?"LEAGUE":t.mode==="custom"?"CUSTOM LEAGUE":"TOURNAMENT"}</small><h2>${esc(t.name)}</h2></div>
-    <button class="ghost danger" id="del">${confirmDel?"정말 삭제할까요? 한 번 더 누르면 삭제":"내전 삭제"}</button>
+    ${champSet.size&&confirmDel?`<span class="pwrow"><input type="password" id="pw" placeholder="비밀번호" aria-label="삭제 비밀번호"><button class="ghost danger" id="pwok">삭제</button><button class="ghost" id="pwno">취소</button></span>`:`<button class="ghost danger" id="del">${confirmDel?"정말 삭제할까요? 한 번 더 누르면 삭제":champSet.size?"🔒 내전 삭제":"내전 삭제"}</button>`}
   </div>
   <div class="meta">
     <span>참가 <b>${P.length}명</b></span>
@@ -423,7 +433,9 @@ function renderT(v){
   $("#tab-rank").onclick=()=>{tab="rank";render()};
   $("#tab-mx").onclick=()=>{tab="mx";render()};
   $("#copy").onclick=copyInfo;
-  $("#del").onclick=delT;
+  if($("#del"))$("#del").onclick=delT;
+  if($("#pw")){const go=()=>{if($("#pw").value===String(window.ADMIN_PW||"arcv")){confirmDel=false;doDelete()}else{toast("비밀번호가 틀렸어요");$("#pw").value="";$("#pw").focus()}};
+    $("#pwok").onclick=go;$("#pw").onkeydown=e=>{if(e.key==="Enter")go()};$("#pwno").onclick=()=>{confirmDel=false;render()};$("#pw").focus()}
   v.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>record(b.dataset.k,+b.dataset.p));
 }
 /* 사진: avatars.js에 이름이 등록된 사람은 그 사진, 없는 사람은 남는 사진 중 랜덤
@@ -434,19 +446,34 @@ const AVBY={};AVS.forEach(a=>{const k=a.name||a.key;if(k)AVBY[norm(k)]=a.img});
 const POOL=[...new Set(AVS.map(a=>a.img))];
 let avCache={k:"",m:[]};
 function hash(str){let h=2166136261;for(const ch of str){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return h>>>0}
-function avatars(){
-  const P=(cur&&cur.players)||[],key=(cur&&cur.id)+"|"+P.join("|");
-  if(avCache.k===key)return avCache.m;
+const avMemo={};
+function avatars(t=cur){
+  const P=(t&&t.players)||[],key=(t&&t.id)+"|"+P.join("|");
+  if(avMemo[key])return avMemo[key];
   const m=P.map(p=>AVBY[norm(p)]||null);
   const used=new Set(m.filter(Boolean));
   let free=POOL.filter(x=>!used.has(x));if(!free.length)free=POOL.slice();
   let seed=hash(key);const rnd=()=>{seed=Math.imul(seed^seed>>>15,2246822507)>>>0;seed^=seed>>>13;return(seed>>>0)/4294967296};
   for(let i=free.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[free[i],free[j]]=[free[j],free[i]]}
   let k=0;m.forEach((v,i)=>{if(!v&&free.length)m[i]=free[k++%free.length]});
-  avCache={k:key,m};return m;
+  avMemo[key]=m;return m;
 }
-function cs(i){const img=avatars()[i];return`--c:${COLORS[i%16]}`+(img?`;--img:url('${encodeURI(img)}')`:"")}
+function cs(i,t){const img=avatars(t)[i];return`--c:${COLORS[i%16]}`+(img?`;--img:url('${encodeURI(img)}')`:"")}
 let champSet=new Set();
+function champItem(t){
+  const ids=t.champ.filter(i=>i>=0&&i<t.players.length);
+  return`<button class="item won-item" data-open="${esc(t.id)}"><div class="avs">${ids.map(i=>`<div class="champ-av" style="${cs(i,t)}">${CROWN}</div>`).join("")}</div>
+  <span class="lbl2">CHAMPION</span><span class="who">${ids.map(i=>esc(t.players[i])).join(" · ")}</span>
+  <small>${esc(t.name)} · ${t.players.length}명 · ${modeName(t.mode)}</small></button>`;
+}
+/* 우승자가 정해지면 목록(idx)에도 기록해서 첫 화면에 보여줌 */
+function syncChamp(t,arr){
+  const m=store.metas[t.id];if(!m||!db)return;
+  const want=arr.length?arr:null;
+  if(JSON.stringify(m.champ||null)===JSON.stringify(want))return;
+  const{id,...nm}=m;if(want)nm.champ=want;else delete nm.champ;
+  store.metas[t.id]={id:t.id,...nm};store.pub("idx/"+t.id,nm).catch(()=>{});
+}
 const CROWN=`<svg class="crown-ic" viewBox="0 0 64 46" aria-hidden="true"><path d="M5 41 9 13l13 14L32 5l10 22 13-14 4 28Z" fill="#ffcf4a" stroke="#6b3f00" stroke-width="3" stroke-linejoin="round"/><rect x="5" y="37" width="54" height="7" rx="2" fill="#f0a91a" stroke="#6b3f00" stroke-width="3"/><circle cx="32" cy="5" r="4" fill="#ff4f8b" stroke="#6b3f00" stroke-width="2"/><circle cx="9" cy="13" r="3.5" fill="#3fd0ff" stroke="#6b3f00" stroke-width="2"/><circle cx="55" cy="13" r="3.5" fill="#3fd0ff" stroke="#6b3f00" stroke-width="2"/><circle cx="32" cy="29" r="4" fill="#ff4f8b"/></svg>`;
 function pbtn(i,P,g){
   if(i===-1)return`<button class="pl bye" disabled><span class="nm">부전승</span></button>`;
@@ -521,7 +548,11 @@ function record(key,p){
 }
 function failed(){toast("저장에 실패했어요. 인터넷 연결을 확인하고 다시 눌러주세요")}
 async function delT(){
+  if(champSet.size){confirmDel=true;render();return}   // 우승자가 정해진 판은 비밀번호 필요
   if(!confirmDel){confirmDel=true;render();setTimeout(()=>{confirmDel=false;if(curId)render()},4000);return}
+  doDelete();
+}
+async function doDelete(){
   try{await store.remove(curId,cur);toast("삭제했어요");goHome()}catch(e){failed(e)}
 }
 function copyInfo(){
