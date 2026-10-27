@@ -147,6 +147,15 @@ textarea:focus{border-color:var(--gold);outline:none}
 .bcol h3{margin:0;font-family:var(--f-latin);font-weight:400;font-size:13px;letter-spacing:.14em;color:var(--gold);text-align:center}
 .bmatch{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--night);border:1px solid var(--line);border-radius:12px;padding:6px}
 .champ{margin-top:16px;display:flex;align-items:center;gap:16px;padding:16px;border-radius:16px;background:linear-gradient(90deg,rgba(255,79,139,.2),rgba(255,207,74,.25),rgba(63,208,255,.2));border:1px solid var(--gold)}
+.crown-ic{position:absolute;z-index:3;top:4%;left:50%;width:42%;transform:translateX(-50%) rotate(-8deg);filter:drop-shadow(0 3px 4px rgba(0,0,0,.6)) drop-shadow(0 0 10px rgba(255,207,74,.7));animation:crown 2.4s ease-in-out infinite}
+@keyframes crown{50%{transform:translateX(-50%) rotate(-8deg) translateY(-4px)}}
+.pl.is-champ{box-shadow:0 0 0 3px var(--gold),0 0 28px rgba(255,207,74,.85)}
+.pl.is-champ.lost{opacity:.55}
+.pl.is-champ.won::after{display:none}
+.champ-av{position:relative;flex:none;width:84px;height:84px;border-radius:16px;border:3px solid var(--gold);box-shadow:0 0 24px rgba(255,207,74,.6);
+  background:var(--img,linear-gradient(transparent,transparent)) center/cover no-repeat,var(--c)}
+.champ-av .crown-ic{top:-34%;width:62%}
+.champ{flex-wrap:wrap;padding-top:30px}
 .champ .crown{font-family:var(--f-latin);color:var(--gold);font-size:12px;letter-spacing:.24em}
 .champ b{font-family:var(--f-display);font-size:34px;font-weight:400}
 
@@ -382,6 +391,8 @@ function renderT(v){
   const t=cur,c=compute(t),P=t.players;
   const pct=c.total?Math.round(c.done/c.total*100):0;
   const champ=t.mode==="ko"?c.view.champ:(c.done===c.total&&c.total?c.ranks.filter(r=>r.rank===1).map(r=>r.i):null);
+  // 모든 경기가 끝나면 우승자에게 왕관
+  champSet=new Set(c.total&&c.done===c.total&&champ!=null?(Array.isArray(champ)?champ:[champ]):[]);
   let body="";
   if(tab==="games") body=t.mode==="ko"?gamesKo(c,P):gamesLeague(c,P);
   else if(tab==="rank") body=rankTable(t,c,P);
@@ -400,7 +411,7 @@ function renderT(v){
   </div>
   <div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
   <div class="share"><span class="live ${db?"on":""}">${db?"실시간 연결됨":"연결 중…"}</span><span>링크만 있으면 누구나 기록할 수 있어요.</span><button class="ghost" id="copy">링크 복사</button></div>
-  ${champ!=null&&(Array.isArray(champ)?champ.length:true)?`<div class="champ" style="margin-bottom:16px"><div><div class="crown">CHAMPION</div><b>${(Array.isArray(champ)?champ:[champ]).map(i=>esc(P[i])).join(" · ")}</b></div></div>`:""}
+  ${champ!=null&&(Array.isArray(champ)?champ.length:true)?`<div class="champ" style="margin-bottom:16px">${[...champSet].map(i=>`<div class="champ-av" style="${cs(i)}">${CROWN}</div>`).join("")}<div><div class="crown">CHAMPION</div><b>${(Array.isArray(champ)?champ:[champ]).map(i=>esc(P[i])).join(" · ")}</b></div></div>`:""}
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-games" aria-selected="${tab==="games"}">${t.mode==="ko"?"브래킷":"대진표"}</button>
     <button role="tab" id="tab-rank" aria-selected="${tab==="rank"}">최종 순위표</button>
@@ -435,11 +446,13 @@ function avatars(){
   avCache={k:key,m};return m;
 }
 function cs(i){const img=avatars()[i];return`--c:${COLORS[i%16]}`+(img?`;--img:url('${encodeURI(img)}')`:"")}
+let champSet=new Set();
+const CROWN=`<svg class="crown-ic" viewBox="0 0 64 46" aria-hidden="true"><path d="M5 41 9 13l13 14L32 5l10 22 13-14 4 28Z" fill="#ffcf4a" stroke="#6b3f00" stroke-width="3" stroke-linejoin="round"/><rect x="5" y="37" width="54" height="7" rx="2" fill="#f0a91a" stroke="#6b3f00" stroke-width="3"/><circle cx="32" cy="5" r="4" fill="#ff4f8b" stroke="#6b3f00" stroke-width="2"/><circle cx="9" cy="13" r="3.5" fill="#3fd0ff" stroke="#6b3f00" stroke-width="2"/><circle cx="55" cy="13" r="3.5" fill="#3fd0ff" stroke="#6b3f00" stroke-width="2"/><circle cx="32" cy="29" r="4" fill="#ff4f8b"/></svg>`;
 function pbtn(i,P,g){
   if(i===-1)return`<button class="pl bye" disabled><span class="nm">부전승</span></button>`;
   if(i==null)return`<button class="pl tbd" disabled><span class="nm">대기 중</span></button>`;
-  const cls=(g.w==null?"":g.w===i?"won":"lost")+(avatars()[i]?" has-img":"");
-  return`<button class="pl ${cls}" style="${cs(i)}" data-k="${g.key}" data-p="${i}" ${canWrite?"":"disabled"} aria-label="${esc(P[i])} 승리로 기록"><span class="nm">${esc(P[i])}</span></button>`;
+  const cls=(g.w==null?"":g.w===i?"won":"lost")+(avatars()[i]?" has-img":"")+(champSet.has(i)?" is-champ":"");
+  return`<button class="pl ${cls}" style="${cs(i)}" data-k="${g.key}" data-p="${i}" ${canWrite?"":"disabled"} aria-label="${esc(P[i])} 승리로 기록">${champSet.has(i)?CROWN:""}<span class="nm">${esc(P[i])}</span></button>`;
 }
 function gamesLeague(c,P){
   return`<p class="hint">이긴 사람 이름을 누르면 기록돼요. 같은 이름을 다시 누르면 취소, 상대를 누르면 바뀌어요.</p>
