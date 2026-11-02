@@ -13,6 +13,7 @@ window.AVATARS = [
   { name: "규현", img: "img/gyuhyun.jpg" },
   { name: "인우", img: "img/inwoo.jpg" },
   { name: "석진", img: "img/seokjin.jpg" },
+  { name: "연우", img: "img/yeonwoo.jpg" },
 ];
 
 /* 우승자가 정해진 내전을 지울 때 필요한 비밀번호 */
